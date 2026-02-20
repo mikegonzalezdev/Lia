@@ -1,2 +1,2 @@
 # Lia
-LIA Es un proyecto Open-Source de Chatbot para mi clase de servició al cliente, Este sistema esta basado en lfm2.5-thinking de 1.2B de parámetros, es un modelo Liviano capaz de llamar a herramientas para realizar acciones.
+LIA es un proyecto Open-Source de Chatbot para mi clase de servicio al cliente, este sistema está basado en Llama3.2 de 3 Billones de parámetros, este es un modelo liviano, muy sencillo de adaptar y está dirigido a pequeños empresarios o para negocios personales de público muy limitado, este modelo es capaz de llamar a herramientas para realizar acciones y en Benchmarks da un 90% de probabilidades de éxito por lo cual es modelo altamente amigable para el usuario.
