@@ -1,51 +1,59 @@
 import ollama
 import datetime
 import sys
+import os
 
-# Configuración Modelo 
+#Configuración del modelo
 MODEL = "qwen2.5:3b"
 KEEP_ALIVE = -1
-TEMPERATURE = 0.35 
+TEMPERATURE = 0.35
 MAX_TOKENS = 220
-SYSTEM_PROMPT = """
-Eres Lia, la asistente virtual amable, entusiasta y profesional de **Fresh Vida**, una tienda de batidos, jugos naturales, licuados y bebidas saludables en Costa Rica.
-Nuestra filosofía:
-“Combinamos los sabores más ricos y frescos de la fruta con nutrición real, para que cuidar tu alimentación sea delicioso, divertido y lleno de energía.”
-Misión:
-Ofrecer bebidas naturales preparadas al momento con frutas frescas de la mejor calidad, que ayuden a las personas a tener mejores hábitos mientras disfrutan un sabor exquisito y se sientan bien atendidas.
-Visión:
-Ser la tienda de jugos y batidos favorita de Costa Rica, reconocida por frescura, calidad y la mejor atención.
-Valores que siempre transmites:
-- Responsabilidad y higiene impecable
-- Respeto y amabilidad en cada palabra
-- Honestidad total (nunca inventas precios, stock ni información)
-- Compromiso con la calidad y la frescura
-- Trabajo en equipo para dar una experiencia agradable
-Tu forma de hablar:
-- Siempre en el idioma del cliente (principalmente español, corto y claro).
-- Tono cálido, positivo, cercano y motivador (como una amiga que quiere que te sientas bien).
-- Respuestas cortas (máximo 3-4 líneas), fáciles de leer.
-- Usa emojis con moderación y siempre alegres 😊🥤🍓
-- Sé proactiva: ofrece recomendaciones de batidos populares, combinaciones saludables o sugerencias según lo que pida el cliente (ej. “¿Quieres algo energizante o más refrescante?”).
-Reglas estrictas que NUNCA rompes:
-1. SOLO usa herramientas (consultar_estado_pedido u obtener_hora_actual) cuando el cliente mencione explícitamente un número de pedido o pregunte directamente por la hora.
-   - Si no hay número de pedido claro → NO llames ninguna herramienta. Responde directamente.
-2. Nunca inventes precios, disponibilidad, stock ni fechas de entrega.
-3. Si no sabes algo, di con honestidad: “Te confirmo eso en un momento” o “Dame un segundo para verificarlo”.
-4. Nunca des información personal de clientes sin confirmar identidad.
-5. Siempre promueve el lado divertido y dulce de cuidarse: “¡Cuidarte puede ser delicioso! 😊”
-Temas que manejas con confianza:
-- Menú y recomendaciones de batidos/jugos
-- Ingredientes y beneficios saludables
-- Preparación al momento y frescura
-- Horarios, ubicación y métodos de pago
-- Promociones y opciones del día
-- Sugerencias proactivas de ventas (upsell suave y natural)
-Ejemplo de respuesta ideal:
-Cliente: Hola, quiero un batido saludable
-Lia: ¡Hola! 🥤 Bienvenid@ a Fresh Vida. ¿Buscas algo energizante como nuestro Green Power (espinaca, piña, jengibre y proteína) o algo más dulce como Mango Paradise? Dime tus preferencias y te recomiendo el perfecto para ti 😊
-Mantén siempre esta personalidad alegre, honesta y servicial. Tu objetivo es que cada cliente se sienta cuidado y salga con ganas de volver.
-"""
+
+#Carga el sistema
+def cargar_system_brain():
+    system_dir = "System"
+    
+    if not os.path.exists(system_dir):
+        print(f"No se encontró la carpeta '{system_dir}'")
+        print("Creándola ahora...")
+        os.makedirs(system_dir)
+        print("Por favor crea dentro los 3 archivos:")
+        print("system_prompt.md")
+        print("guardrails.md")
+        print("faqs.md")
+        sys.exit(1)
+
+    try:
+        # Lee markdown
+        with open(os.path.join(system_dir, "system_prompt.md"), "r", encoding="utf-8") as f:
+            main = f.read().strip()
+        
+        with open(os.path.join(system_dir, "guardrails.md"), "r", encoding="utf-8") as f:
+            guardrails = f.read().strip()
+        
+        with open(os.path.join(system_dir, "frequent_questions.md"), "r", encoding="utf-8") as f:
+            faqs = f.read().strip()
+
+        # Combinamos todo en un solo System Prompt claro
+        full_system_prompt = f"""{main}
+
+{guardrails}
+
+{faqs}
+
+Recuerda: siempre sigue las reglas de guardrails y usa las FAQs cuando la pregunta del cliente coincida.
+Mantén tu personalidad alegre, servicial y profesional de Fresh Vida."""
+
+        print("El Cerebro se ha cargado correctamente m/")
+        return full_system_prompt
+
+    except FileNotFoundError as e:
+        print(f"❌ Error: No se encontró el archivo {e.filename}")
+        print("Asegúrate de tener los 3 archivos .md dentro de la carpeta System/")
+        sys.exit(1)
+
+#Carga System Prompt
+SYSTEM_PROMPT = cargar_system_brain()
 
 #Herramientas
 def consultar_estado_pedido(numero_pedido: str) -> str:
@@ -83,13 +91,24 @@ print("Escribe 'adiós' o 'salir' para terminar.\n")
 while True:
     user_input = input("Tú: ").strip()
 
+    # Salir del chatbot
     if user_input.lower() in ["salir", "adiós", "bye", "exit"]:
         print("\n¡Gracias por contactarnos! Estamos para ayudarte cuando quieras. 😊")
         sys.exit(0)
 
+    #
+    if user_input.lower() == "debug":
+        print("\n--- DEBUG INFO ---")
+        print(f"Total mensajes en historial: {len(messages)}")
+        for i, msg in enumerate(messages[-6:]):
+            print(f"{i}: {msg}")
+        print("------------------\n")
+        continue
+
     if not user_input:
         continue
 
+    # Agregar mensaje del usuario al historial
     messages.append({"role": "user", "content": user_input})
 
     try:
@@ -107,7 +126,7 @@ while True:
 
         messages.append(response["message"])
 
-        #Proceso de Tools
+        #procesos deherramienta
         if response["message"].get("tool_calls"):
             print(" (usando herramientas internas...)")
             tool_results_added = False
@@ -134,14 +153,14 @@ while True:
                     result = "Herramienta desconocida"
                     tool_results_added = True
 
-                # Agregamos siempre el resultado de la tool al historial
+                # Guardamos el resultado de la herramienta
                 messages.append({
                     "role": "tool",
                     "tool_name": func_name,
                     "content": str(result)
                 })
 
-            # Solo hacemos segunda llamada si se ejecutó alguna tool válida
+            # Segunda llamada a herramienta
             if tool_results_added:
                 final_response = ollama.chat(
                     model=MODEL,
@@ -156,11 +175,12 @@ while True:
                 reply = response["message"]["content"].strip()
 
         else:
-            # SSi no hay tools,responder directo
+            #Sin herramienta respuesta directa
             reply = response["message"]["content"].strip()
 
         print("Asistente:", reply)
 
     except Exception as e:
         print(f"Error: {str(e)}")
-        print("Asegúrate que Ollama  no esta corriendo,ejecute en consola ´ollama serve`.")
+        print("Asegúrate que Ollama esté corriendo.")
+        print("Ejecuta en otra terminal: `ollama serve`")
